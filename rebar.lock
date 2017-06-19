@@ -1,0 +1,14 @@
+{"1.1.0",
+[{<<"cf">>,{pkg,<<"cf">>,<<"0.2.1">>},1},
+ {<<"erlware_commons">>,{pkg,<<"erlware_commons">>,<<"1.0.0">>},0},
+ {<<"getopt">>,{pkg,<<"getopt">>,<<"0.8.2">>},1},
+ {<<"ibrowse">>,{pkg,<<"ibrowse">>,<<"4.4.0">>},1},
+ {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.2">>},1}]}.
+[
+{pkg_hash,[
+ {<<"cf">>, <<"69D0B1349FD4D7D4DC55B7F407D29D7A840BF9A1EF5AF529F1EBE0CE153FC2AB">>},
+ {<<"erlware_commons">>, <<"087467DE5833C0BB5B3CCDD387F9E9C1FB816A75B7A709629BF24B5ED3246C51">>},
+ {<<"getopt">>, <<"B17556DB683000BA50370B16C0619DF1337E7AF7ECBF7D64FBF8D1D6BCE3109B">>},
+ {<<"ibrowse">>, <<"2D923325EFE0D2CB09B9C6A047B2835A5EDA69D8A47ED6FF8BC03628B764E991">>},
+ {<<"jsx">>, <<"7ACC7D785B5ABE8A6E9ADBDE926A24E481F29956DD8B4DF49E3E4E7BCC92A018">>}]}
+].
