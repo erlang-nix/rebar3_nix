@@ -25,15 +25,14 @@
 
 -export([perform/1]).
 
--record(data, {version
-              , registry_only = false
+-record(data, { version
               , debug_info = false
               , compile_ports
               , erl_libs
               , plugins
               , root
               , name
-              , registry_snapshot}).
+              }).
 
 -define(HEX_REGISTRY_PATH, ".cache/rebar3/hex/default/registry").
 
@@ -45,27 +44,20 @@ perform(Opts) ->
     io:format("nix_bootstrap data: ~p~n", [RequiredData]),
     do_the_bootstrap(RequiredData).
 
-%% @doc There are two modes 'registry_only' where the register is
-%% created from hex and everything else.
 -spec do_the_bootstrap(#data{}) -> ok.
-do_the_bootstrap(RequiredData = #data{registry_only = true}) ->
-    ok = bootstrap_registry(RequiredData);
 do_the_bootstrap(RequiredData) ->
-    ok = bootstrap_registry(RequiredData),
     ok = bootstrap_configs(RequiredData),
     ok = bootstrap_plugins(RequiredData),
     ok = bootstrap_libs(RequiredData).
 
 %% @doc
 %% Argument parsing is super simple only because we want to keep the
-%% dependencies minimal. For now there can be two entries on the
-%% command line, "registry-only" and "debug-info"
+%% dependencies minimal. For now there can be one entry on the
+%% command line: "debug-info"
 -spec parse_args([proplists:property()]) -> {ok, #data{}}.
 parse_args(Opts) ->
-    RegistryOnly = proplists:get_value(registry_only, Opts),
     DebugInfo = proplists:get_value(debug_info, Opts),
-    {ok, #data{registry_only = RegistryOnly,
-               debug_info = DebugInfo}}.
+    {ok, #data{debug_info = DebugInfo}}.
 
 -spec bootstrap_configs(#data{}) -> ok.
 bootstrap_configs(RequiredData)->
@@ -151,30 +143,6 @@ fixup_app_name(FileName) ->
         [Name, _Version, _Tag] -> Name
     end.
 
--spec bootstrap_registry(#data{}) -> ok.
-bootstrap_registry(#data{registry_snapshot = RegistrySnapshot}) ->
-    io:format("Bootstrapping Hex Registry for Rebar~n"),
-    make_sure_registry_snapshot_exists(RegistrySnapshot),
-    filelib:ensure_dir(?HEX_REGISTRY_PATH),
-    ok = case filelib:is_file(?HEX_REGISTRY_PATH) of
-             true ->
-                 file:delete(?HEX_REGISTRY_PATH);
-             false ->
-                 ok
-         end,
-    ok = file:make_symlink(RegistrySnapshot,
-                           ?HEX_REGISTRY_PATH).
-
--spec make_sure_registry_snapshot_exists(string()) -> ok.
-make_sure_registry_snapshot_exists(RegistrySnapshot) ->
-    case filelib:is_file(RegistrySnapshot) of
-        true ->
-            ok;
-        false ->
-            stderr("Registry snapshot (~s) does not exist!", [RegistrySnapshot]),
-            erlang:halt(1)
-    end.
-
 -spec gather_required_data_from_the_environment(#data{}) -> {ok, #data{}}.
 gather_required_data_from_the_environment(ArgData) ->
     {ok, ArgData#data{ version = guard_env("version")
@@ -182,8 +150,7 @@ gather_required_data_from_the_environment(ArgData) ->
                      , plugins = get_env("buildPlugins", [])
                      , root = code:root_dir()
                      , name = guard_env("name")
-                     , compile_ports = nix2bool(get_env("compilePorts", ""))
-                     , registry_snapshot = guard_env("HEX_REGISTRY_SNAPSHOT")}}.
+                     , compile_ports = nix2bool(get_env("compilePorts", ""))}}.
 
 -spec nix2bool(any()) -> boolean().
 nix2bool("1") ->
