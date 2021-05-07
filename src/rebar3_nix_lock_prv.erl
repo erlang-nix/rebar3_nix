@@ -44,7 +44,6 @@ init(State) ->
                               ]),
   {ok, rebar_state:add_provider(State, Provider)}.
 
-
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
   Lock = rebar_state:lock(State),
@@ -63,7 +62,7 @@ format_error(Reason) ->
   io_lib:format("~p", [Reason]).
 
 to_nix(Name, {pkg, PkgName, Vsn, _OldHash, Hash, _Repo}) ->
-  io_lib:format(?FETCH_HEX, [Name, PkgName, Vsn, Hash]);
+  io_lib:format(?FETCH_HEX, [Name, PkgName, Vsn, to_sri(Hash)]);
 to_nix(Name, {git, Url, {ref, Ref}}) ->
   case string:prefix(string:lowercase(Url), "https://github.com/") of
     nomatch ->
@@ -86,3 +85,9 @@ to_nix(Name, {git, Url, {ref, Ref}}) ->
 to_nix(Name, Other) ->
   rebar_api:abort("rebar3_nix: unsupported dependency type ~p for ~s~n", [Other, Name]),
   undefined.
+
+to_sri(Sha256) when is_list(Sha256) ->
+  to_sri(list_to_binary(Sha256));
+to_sri(<<Sha256Base16:64/binary>>) ->
+  Sha256 = binary_to_integer(Sha256Base16, 16),
+  ["sha256-", base64:encode(<<Sha256:32/big-unsigned-integer-unit:8>>)].
