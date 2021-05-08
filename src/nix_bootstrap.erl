@@ -27,14 +27,10 @@
 
 -record(data, { version
               , debug_info = false
-              , compile_ports
               , erl_libs
-              , plugins
               , root
               , name
               }).
-
--define(HEX_REGISTRY_PATH, ".cache/rebar3/hex/default/registry").
 
 perform(Opts) ->
     io:format("nix_bootstrap opts: ~p~n", [Opts]),
@@ -47,7 +43,6 @@ perform(Opts) ->
 -spec do_the_bootstrap(#data{}) -> ok.
 do_the_bootstrap(RequiredData) ->
     ok = bootstrap_configs(RequiredData),
-    ok = bootstrap_plugins(RequiredData),
     ok = bootstrap_libs(RequiredData).
 
 %% @doc
@@ -63,21 +58,7 @@ parse_args(Opts) ->
 bootstrap_configs(RequiredData)->
     io:format("Boostrapping app and rebar configurations~n"),
     ok = if_single_app_project_update_app_src_version(RequiredData),
-    ok = if_compile_ports_add_pc_plugin(RequiredData),
     ok = if_debug_info_add(RequiredData).
-
--spec bootstrap_plugins(#data{}) -> ok.
-bootstrap_plugins(#data{plugins = Plugins}) ->
-    io:format("Bootstrapping rebar3 plugins~n"),
-    Target = "_build/default/plugins/",
-    Paths = string:tokens(Plugins, " "),
-    CopiableFiles =
-        lists:foldl(fun(Path, Acc) ->
-                            gather_dependency(Path) ++ Acc
-                    end, [], Paths),
-    lists:foreach(fun (Path) ->
-                          ok = link_app(Path, Target)
-                  end, CopiableFiles).
 
 -spec bootstrap_libs(#data{}) -> ok.
 bootstrap_libs(#data{erl_libs = ErlLibs}) ->
@@ -147,10 +128,9 @@ fixup_app_name(FileName) ->
 gather_required_data_from_the_environment(ArgData) ->
     {ok, ArgData#data{ version = guard_env("version")
                      , erl_libs = get_env("ERL_LIBS", [])
-                     , plugins = get_env("buildPlugins", [])
                      , root = code:root_dir()
                      , name = guard_env("name")
-                     , compile_ports = nix2bool(get_env("compilePorts", ""))}}.
+                     }}.
 
 -spec nix2bool(any()) -> boolean().
 nix2bool("1") ->
@@ -203,27 +183,6 @@ add_debug_info(Config) ->
             lists:keystore(erl_opts, 1, Config,
                            {erl_opts, [debug_info | ExistingOpts]})
     end.
-
-
-%% @doc
-%% If the compile ports flag is set, rewrite the rebar config to
-%% include the 'pc' plugin.
--spec if_compile_ports_add_pc_plugin(#data{}) -> ok.
-if_compile_ports_add_pc_plugin(#data{compile_ports = true}) ->
-    ConfigTerms = add_pc_to_plugins(read_rebar_config()),
-    Text = lists:map(fun(Term) -> io_lib:format("~tp.~n", [Term]) end,
-                     ConfigTerms),
-    file:write_file("rebar.config", Text);
-if_compile_ports_add_pc_plugin(_) ->
-    ok.
-
--spec add_pc_to_plugins([term()]) -> [term()].
-add_pc_to_plugins(Config) ->
-    PluginList = case lists:keysearch(plugins, 1, Config) of
-                     {value, {plugins, ExistingPluginList}} -> ExistingPluginList;
-                     _ -> []
-                 end,
-    lists:keystore(plugins, 1, Config, {plugins, [pc | PluginList]}).
 
 -spec read_rebar_config() -> [term()].
 read_rebar_config() ->
