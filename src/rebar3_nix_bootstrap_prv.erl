@@ -22,8 +22,7 @@ init(State) ->
     {ok, rebar_state:add_provider(State, Provider)}.
 
 opts() ->
-    [ {registry_only, $r, "registry_only", {boolean, false}, "bootstrap registry only"}
-    , {debug_info, $d, "debug_info", {boolean, false}, "enable debug info"}
+    [ {debug_info, $d, "debug_info", {boolean, false}, "enable debug info"}
     ].
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
