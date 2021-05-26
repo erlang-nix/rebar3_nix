@@ -54,8 +54,9 @@ init(State) ->
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-  Lock = rebar_state:lock(State),
-  Deps = [to_nix(A) || A <- Lock],
+  Apps = rebar_state:all_deps(State),
+  AllDepsNames = [to_binary(rebar_app_info:name(A)) || A <- Apps],
+  Deps = [to_nix(A, AllDepsNames) || A <- Apps],
   Drv = io_lib:format(?NIX_DEPS, [Deps]),
   ok = file:write_file(out_path(State), Drv),
   {ok, State}.
@@ -68,10 +69,11 @@ out_path(State) ->
 format_error(Reason) ->
   io_lib:format("~p", [Reason]).
 
-to_nix(AppInfo) ->
+to_nix(AppInfo, AllDepsNames) ->
   Name = rebar_app_info:name(AppInfo),
   {Vsn, Src} = src(Name, rebar_app_info:source(AppInfo)),
-  Deps = [[DepName, " "] || {DepName, _} <- rebar_app_info:deps(AppInfo)],
+  Deps = [[BinName, " "] || BinName <- app_deps(AppInfo),
+                            lists:member(BinName, AllDepsNames)],
   io_lib:format(?DEP, [Name, Name, Vsn, Src, Deps]).
 
 src(_, {pkg, PkgName, Vsn, _OldHash, Hash, _Repo}) ->
@@ -104,3 +106,16 @@ to_sri(Sha256) when is_list(Sha256) ->
 to_sri(<<Sha256Base16:64/binary>>) ->
   Sha256 = binary_to_integer(Sha256Base16, 16),
   ["sha256-", base64:encode(<<Sha256:32/big-unsigned-integer-unit:8>>)].
+
+app_deps(AppInfo) ->
+  Names = proplists:get_value(applications, rebar_app_info:app_details(AppInfo), []) ++
+    rebar_state:deps_names(rebar_app_info:get(AppInfo, {deps, default}, []) ++
+                             rebar_app_info:get(AppInfo, {deps, prod}, [])),
+  lists:usort([to_binary(N) || N <- Names]).
+
+to_binary(Atom) when is_atom(Atom) ->
+  atom_to_binary(Atom, utf8);
+to_binary(List) when is_list(List) ->
+  unicode:characters_to_binary(List);
+to_binary(Bin) ->
+  Bin.
