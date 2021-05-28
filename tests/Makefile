@@ -1,3 +1,5 @@
+NIX_PATH := nixpkgs=https://github.com/NixOS/nixpkgs/archive/d0063d5aff2ebd0fdc321ed9eed11b017b5069a2.tar.gz
+
 all: clean
 	nix-shell --run 'make test'
 
