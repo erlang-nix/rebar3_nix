@@ -17,7 +17,7 @@ test_%:
 	sed -i 's/{deps, \[\]}\./{deps, [$(DEPS)]}./' test_$*/rebar.config
 	find -wholename '*/test_$*/*.app.src' -exec \
 		sed -i 's/stdlib/stdlib,$(APP_DEPS)/' {} \;
-	cd test_$* && rebar3 nix init -t $* && rm -rf _build
+	cd test_$* && rebar3 nix init $* && rm -rf _build
 	nix-build test_$* --no-out-link
 	$(MAKE) test_result_$*
 

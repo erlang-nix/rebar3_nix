@@ -43,8 +43,8 @@ init(State) ->
                                {module, ?MODULE},
                                {bare, true},
                                {deps, [lock]},
-                               {example, "rebar3 nix init -t release"},
-                               {opts, [{type, $t, "type", {string, "release"}, "`app`, `release`, `lib` or `escript`"}]},
+                               {example, "rebar3 nix init release"},
+                               {opts, []},
                                {short_desc, "Initialize rebar3 project for use with nix"},
                                {desc, "Initialize rebar3 project for use with nix"}
                               ]),
@@ -53,19 +53,25 @@ init(State) ->
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
   {Args, _} = rebar_state:command_parsed_args(State),
-  Type = proplists:get_value(type, Args),
-  case discover(State) of
-    {ok, umbrella, Name} when Type =:= "escript"; Type =:= "release" ->
-      umbrella(Type, State, Name),
-      {ok, State};
-    {ok, app, Name} when Type =:= "lib"; Type =:= "app" ->
-      lib(Name),
-      {ok, State};
-    {ok, app, Name} ->
-      release(Type, Name),
-      {ok, State};
-    {error, Err} ->
-      {error, Err}
+  case Args of
+    [{task, Type}]
+      when Type =:= "escript"; Type =:= "release"; Type =:= "lib"; Type =:= "app" ->
+      case discover(State) of
+        {ok, umbrella, Name} when Type =:= "escript"; Type =:= "release" ->
+          umbrella(Type, State, Name),
+          {ok, State};
+        {ok, app, Name} when Type =:= "lib"; Type =:= "app" ->
+          lib(Name),
+          {ok, State};
+        {ok, app, Name} ->
+          release(Type, Name),
+          {ok, State};
+        {error, Err} ->
+          {error, Err}
+      end;
+    _ ->
+      io:format("Usage:~nrebar3 nix init <app|release|escript|lib>~n"),
+      {ok, State}
   end.
 
 -spec format_error(any()) ->  iolist().
