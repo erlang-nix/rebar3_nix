@@ -3,7 +3,7 @@ NIX_PATH := nixpkgs=https://github.com/NixOS/nixpkgs/archive/d0063d5aff2ebd0fdc3
 all: clean
 	nix-shell --run 'make test'
 
-PROJECTS := test_app test_lib test_release test_escript
+PROJECTS := test_app test_lib test_release test_escript test_profiles
 DEPS := {cowboy, "2.8.0"}
 APP_DEPS := cowboy
 
@@ -11,6 +11,14 @@ clean:
 	for proj in $(PROJECTS); do rm -rf $$proj; done
 
 test: $(PROJECTS)
+
+test_profiles: test_lib
+	cp -R test_lib test_profiles
+	printf "\n{profiles, [{test, [{deps, [meck]}]}]}.\n" >> test_profiles/rebar.config
+	cd test_profiles && rebar3 as test nix lock
+	nix-build test_profiles
+	nix-shell ./test_profiles --run \
+		"erl -eval '{ok, _} = application:ensure_all_started(meck), init:stop(0).'"
 
 test_%:
 	rebar3 new $* test_$*
