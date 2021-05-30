@@ -37,6 +37,8 @@ in { builder ? fetchOnly, fetchHex, fetchFromGitHub }: rec {~s
       sha256 = \"~s\";
     }").
 
+-define(DEFAULT_OUT, "rebar-deps.nix").
+
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
 init(State) ->
   Provider = providers:create([
@@ -46,7 +48,7 @@ init(State) ->
                                {bare, true},
                                {deps, [{default, lock}]},
                                {example, "rebar3 nix lock -o rebar-deps.nix"},
-                               {opts, [{out, $o, "out", {string, "rebar-deps.nix"}, "Output file."}]},
+                               {opts, [{out, $o, "out", {string, ?DEFAULT_OUT}, "Output file."}]},
                                {short_desc, "Export rebar3 dependencies for nix"},
                                {desc, "Export rebar3 dependencies for nix"}
                               ]),
@@ -63,7 +65,7 @@ do(State) ->
 
 out_path(State) ->
   {Args, _} = rebar_state:command_parsed_args(State),
-  proplists:get_value(out, Args).
+  proplists:get_value(out, Args, ?DEFAULT_OUT).
 
 -spec format_error(any()) ->  iolist().
 format_error(Reason) ->
