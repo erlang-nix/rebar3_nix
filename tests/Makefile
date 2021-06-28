@@ -4,7 +4,13 @@ all: clean
 	nix-shell --run 'make test'
 
 PROJECTS := test_app test_lib test_release test_escript test_profiles
-DEPS := {cowboy, "2.8.0"}
+
+# hackey tests `fetchFromGitHub` and zj tests 'fetchgit'
+DEPS := \
+	{cowboy, "2.8.0"}, \
+	{hackney, {git, "https://github.com/benoitc/hackney.git", {ref, "01bb4249f595e0aa692db28ef23e70f57ae2d4ed"}}}, \
+	{zj, {git, "https://gitlab.com/zxq9/zj.git", {ref, "27b7252f82c726d78f7ea297644b6b8ad90df479"}}}
+
 APP_DEPS := cowboy
 
 clean:
@@ -22,7 +28,7 @@ test_profiles: test_lib
 
 test_%:
 	rebar3 new $* test_$*
-	sed -i 's/{deps, \[\]}\./{deps, [$(DEPS)]}./' test_$*/rebar.config
+	sed -i 's|{deps, \[\]}\.|{deps, [$(DEPS)]}.|' test_$*/rebar.config
 	find -wholename '*/test_$*/*.app.src' -exec \
 		sed -i 's/stdlib/stdlib,$(APP_DEPS)/' {} \;
 	cd test_$* && rebar3 nix init $* && rm -rf _build
