@@ -12,7 +12,7 @@ buildRebar3 {
   profile = \"prod\";
   beamDeps = builtins.attrValues
     (import ./rebar-deps.nix {
-      inherit (pkgs) fetchHex fetchFromGitHub;
+      inherit (pkgs) fetchHex fetchgit fetchFromGitHub;
       builder = buildRebar3;
   });
 }
@@ -29,7 +29,7 @@ rebar3Relx {
   profile = \"prod\";
   beamDeps = builtins.attrValues
     (import ./rebar-deps.nix {
-      inherit (pkgs) fetchHex fetchFromGitHub;
+      inherit (pkgs) fetchHex fetchgit fetchFromGitHub;
       builder = buildRebar3;
   });
 }

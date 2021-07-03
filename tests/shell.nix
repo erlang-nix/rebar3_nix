@@ -8,5 +8,6 @@ in pkgs.mkShell {
     bashInteractive
     (rebar3WithPlugins ({ globalPlugins = [ rebar3-nix ]; }))
     erlang
+    nix-prefetch-git
   ];
 }
