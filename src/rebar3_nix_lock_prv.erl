@@ -55,7 +55,8 @@ init(State) ->
                                {example, "rebar3 nix lock -o rebar-deps.nix"},
                                {opts, [{out, $o, "out", {string, ?DEFAULT_OUT}, "Output file."}]},
                                {short_desc, "Export rebar3 dependencies for nix"},
-                               {desc, "Export rebar3 dependencies for nix"}
+                               {desc, "Export rebar3 dependencies for nix"},
+                               {profiles, [default, test, prod]}
                               ]),
   {ok, rebar_state:add_provider(State, Provider)}.
 
