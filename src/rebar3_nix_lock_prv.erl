@@ -55,18 +55,37 @@ init(State) ->
                                {example, "rebar3 nix lock -o rebar-deps.nix"},
                                {opts, [{out, $o, "out", {string, ?DEFAULT_OUT}, "Output file."}]},
                                {short_desc, "Export rebar3 dependencies for nix"},
-                               {desc, "Export rebar3 dependencies for nix"}
+                               {desc, "Export rebar3 dependencies for nix"},
+                               {profiles, [default, test, prod]}
                               ]),
   {ok, rebar_state:add_provider(State, Provider)}.
 
 -spec do(rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 do(State) ->
-  Apps = rebar_state:all_deps(State),
+  JustApps = rebar_state:all_deps(State),
+  JustPlugins = rebar_state:all_plugin_deps(State),
+  Apps = deduplicate(JustApps ++ JustPlugins), % pick newer one
   AllDepsNames = [to_binary(rebar_app_info:name(A)) || A <- Apps],
   Deps = [to_nix(A, AllDepsNames) || A <- Apps],
   Drv = io_lib:format(?NIX_DEPS, [Deps]),
   ok = file:write_file(out_path(State), Drv),
   {ok, State}.
+
+make_comparator(F) ->
+    fun(A, B) ->
+            F(A) > F(B)
+    end.
+
+deduplicate(Apps) ->
+    NewerFirstF = make_comparator(fun rebar_app_info:vsn/1),
+    CheckVF =
+        fun(App, Acc) ->
+                Name = rebar_app_info:name(App),
+                L = maps:get(Name, Acc, []),
+                [Newer | _] = lists:sort(NewerFirstF, [App | L]),
+                maps:put(Name, [Newer], Acc)
+        end,
+    lists:flatten(maps:values(lists:foldl(CheckVF, maps:new(), Apps))).
 
 out_path(State) ->
   {Args, _} = rebar_state:command_parsed_args(State),
