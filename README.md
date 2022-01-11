@@ -33,7 +33,7 @@ Here's an example
 $ ls
 apps config rebar.config rebar.lock
 
-$ rebar3 nix > deps.nix
+$ rebar3 nix lock -o deps.nix
 
 $ cat > default.nix <<EOM
 { pkgs }:

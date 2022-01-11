@@ -66,26 +66,26 @@ do(State) ->
   JustPlugins = rebar_state:all_plugin_deps(State),
   Apps = deduplicate(JustApps ++ JustPlugins), % pick newer one
   AllDepsNames = [to_binary(rebar_app_info:name(A)) || A <- Apps],
-  Deps = [to_nix(A, AllDepsNames) || A <- Apps],
+  Deps = [to_nix(A, AllDepsNames, State) || A <- Apps],
   Drv = io_lib:format(?NIX_DEPS, [Deps]),
   ok = file:write_file(out_path(State), Drv),
   {ok, State}.
 
 make_comparator(F) ->
-    fun(A, B) ->
-            F(A) > F(B)
-    end.
+  fun(A, B) ->
+      F(A) > F(B)
+  end.
 
 deduplicate(Apps) ->
-    NewerFirstF = make_comparator(fun rebar_app_info:vsn/1),
-    CheckVF =
-        fun(App, Acc) ->
-                Name = rebar_app_info:name(App),
-                L = maps:get(Name, Acc, []),
-                [Newer | _] = lists:sort(NewerFirstF, [App | L]),
-                maps:put(Name, [Newer], Acc)
-        end,
-    lists:flatten(maps:values(lists:foldl(CheckVF, maps:new(), Apps))).
+  NewerFirstF = make_comparator(fun rebar_app_info:vsn/1),
+  CheckVF =
+    fun(App, Acc) ->
+        Name = rebar_app_info:name(App),
+        L = maps:get(Name, Acc, []),
+        [Newer | _] = lists:sort(NewerFirstF, [App | L]),
+        maps:put(Name, [Newer], Acc)
+    end,
+  lists:flatten(maps:values(lists:foldl(CheckVF, maps:new(), Apps))).
 
 out_path(State) ->
   {Args, _} = rebar_state:command_parsed_args(State),
@@ -95,34 +95,43 @@ out_path(State) ->
 format_error(Reason) ->
   io_lib:format("~p", [Reason]).
 
-to_nix(AppInfo, AllDepsNames) ->
+to_nix(AppInfo, AllDepsNames, State) ->
   Name = rebar_app_info:name(AppInfo),
-  {Vsn, Src} = src(Name, rebar_app_info:source(AppInfo)),
-  Deps = [[BinName, " "] || BinName <- app_deps(AppInfo),
-                            lists:member(BinName, AllDepsNames)],
-  io_lib:format(?DEP, [Name, Name, Vsn, Src, Deps]).
+  case src(Name, rebar_app_info:source(AppInfo), State) of
+    {ok, {Vsn, Src}} ->
+      Deps = [[BinName, " "] || BinName <- app_deps(AppInfo),
+                                lists:member(BinName, AllDepsNames)],
+      io_lib:format(?DEP, [Name, Name, Vsn, Src, Deps]);
+    skip ->
+      ""
+  end.
 
-src(_, {pkg, PkgName, Vsn, _OldHash, Hash, _Repo}) ->
-  {Vsn, io_lib:format(?FETCH_HEX, [PkgName, Vsn, to_sri(Hash)])};
-src(_, {git, Url, {ref, Ref}}) ->
-  case string:prefix(string:lowercase(Url), "https://github.com/") of
+src(_, {pkg, PkgName, Vsn, _OldHash, Hash, _Repo}, State) ->
+  {ok, {Vsn, io_lib:format(?FETCH_HEX, [PkgName, Vsn, to_sri(Hash)])}};
+src(_, {git, Url0, {ref, Ref}}, State) ->
+  Url = string:lowercase(Url0),
+  case re:run(Url, "://github.com/") of
     nomatch ->
       Prefetch = ["nix-prefetch-git --quiet ", Url, " ", Ref],
       {ok, Json} = rebar3_nix_utils:cmd(Prefetch),
       {ok, #{<<"sha256">> := Hash}, _} =
         rebar3_nix_jsone_decode_vendored:decode(unicode:characters_to_binary(Json)),
-      {"git", io_lib:format(?FETCH_GIT, [Url, Ref, Hash])};
-    Path ->
-      [Owner, Repo0] = string:split(Path, "/", trailing),
+      {ok, {"git", io_lib:format(?FETCH_GIT, [Url, Ref, Hash])}};
+    {match, _} ->
+      [_, OwnerRepo] = string:split(Url, "github.com/", trailing),
+      [Owner, Repo0] = string:split(OwnerRepo, "/", trailing),
       Repo = re:replace(Repo0, "\\.git$", "", [{return, list}]),
       Prefetch = ["nix-prefetch-url --unpack https://github.com/",
                   Owner, "/", Repo, "/tarball/", Ref],
       {ok, Hash} = rebar3_nix_utils:cmd(Prefetch),
-      {"git", io_lib:format(?FETCH_FROM_GITHUB, [Owner, Repo, Ref, Hash])}
-    end;
-src(Name, Other) ->
-  rebar_api:abort("rebar3_nix: unsupported dependency type ~p for ~s~n", [Other, Name]),
-  undefined.
+      {ok, {"git", io_lib:format(?FETCH_FROM_GITHUB, [Owner, Repo, Ref, Hash])}}
+  end;
+src(<<"rebar3_nix">>, checkout, State) ->
+  %% Hack for local development of this plugin itself.
+  skip;
+src(Name, Other, State) ->
+  rebar_api:abort("rebar3_nix: unsupported dependency type ~p for ~p. Locks state: ~p~n", [Other, Name, rebar_state:lock(State)]),
+  {error, unsupported_dependency}.
 
 to_sri(Sha256) when is_list(Sha256) ->
   to_sri(list_to_binary(Sha256));
